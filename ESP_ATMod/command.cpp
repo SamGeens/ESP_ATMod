@@ -22,6 +22,8 @@
 #include "Arduino.h"
 #include "ESP8266WiFi.h"
 #include <PolledTimeout.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "sntp.h"
 #include <time.h>
@@ -84,6 +86,7 @@ static const commandDef_t commandList[] = {
 	{"+CWDHCP_CUR", MODE_QUERY_SET, CMD_AT_CWDHCP_CUR},
 	{"+CWDHCP_DEF", MODE_QUERY_SET, CMD_AT_CWDHCP_DEF},
 	{"+CWAUTOCONN", MODE_QUERY_SET, CMD_AT_CWAUTOCONN},
+	{"+CIPAPMAC", MODE_QUERY_SET, CMD_AT_CIPAPMAC},
 	{"+CIPSTA", MODE_QUERY_SET, CMD_AT_CIPSTA},
 	{"+CIPSTA_CUR", MODE_QUERY_SET, CMD_AT_CIPSTA_CUR},
 	{"+CIPSTA_DEF", MODE_QUERY_SET, CMD_AT_CIPSTA_DEF},
@@ -133,6 +136,7 @@ void printCertificateName(uint8_t certNumber);
 int compWifiRssi(const void *elem1, const void *elem2);
 void printCWLAP(int networksFound);
 void printScanResult(int networksFound);
+void parseBytes(const char *str, char sep, byte *bytes, int maxBytes, int base);
 
 /*
  * Variables
@@ -163,6 +167,7 @@ static void cmd_AT_CWSAP(commands_t cmd);
 static void cmd_AT_CWLIF();
 static void cmd_AT_CWDHCP(commands_t cmd);
 static void cmd_AT_CWAUTOCONN();
+static void cmd_AT_CIPAPMAC();
 static void cmd_AT_CIPSTA(commands_t cmd);
 static void cmd_AT_CWHOSTNAME();
 
@@ -271,6 +276,11 @@ void processCommandBuffer(void)
 	// ------------------------------------------------------------------------------------ AT+CWAUTOCONN
 	else if (cmd == CMD_AT_CWAUTOCONN) // AT+CWAUTOCONN - auto connect to AP
 		cmd_AT_CWAUTOCONN();
+
+	// ------------------------------------------------------------------------------------ AT+CIPAPMAC
+	else if (cmd == CMD_AT_CIPAPMAC)
+		// AT+CIPAPMAC - Set or get the MAC Address of the ESP8266 SoftAP
+		cmd_AT_CIPAPMAC();
 
 	// ------------------------------------------------------------------------------------ AT+CIPSTA
 	else if (cmd == CMD_AT_CIPSTA || cmd == CMD_AT_CIPSTA_CUR || cmd == CMD_AT_CIPSTA_DEF)
@@ -1148,6 +1158,49 @@ void cmd_AT_CWAUTOCONN()
 	else
 	{
 		Serial.printf_P(MSG_ERROR);
+	}
+}
+
+/*
+ * AT+CIPAPMAC - Set or get the MAC Address of the ESP8266 SoftAP
+ */
+void cmd_AT_CIPAPMAC()
+{
+	bool error = true;
+	uint16_t offset = 11;
+
+	if (inputBuffer[offset] == '?')
+	{
+		Serial.printf_P(PSTR("+CIPAPMAC:%s\r\n"), WiFi.macAddress().c_str());
+		error = false;
+	}
+	else if (inputBuffer[offset] == '=')
+	{
+		do
+		{
+			String macStr;
+			byte mac[6];
+
+			++offset;
+			macStr = readStringFromBuffer(inputBuffer, offset, true);
+			if (macStr.isEmpty())
+				break;
+
+			parseBytes(macStr.c_str(), ':', mac, 6, 16);
+
+			wifi_set_macaddr(0, const_cast<uint8 *>(mac)); // This line changes MAC address of ESP8266
+		} while (0);
+
+		error = false;
+	}
+
+	if (error)
+	{
+		Serial.printf_P(MSG_ERROR);
+	}
+	else
+	{
+		Serial.printf_P(MSG_OK);
 	}
 }
 
@@ -3332,5 +3385,22 @@ void printScanResult(int networksFound)
 
 		// Print the sorted networks
 		printCWLAP(indices, sizeof(indices) / sizeof(indices[0]));
+	}
+}
+
+/*
+ * Converts string to byte array
+ */
+void parseBytes(const char *str, char sep, byte *bytes, int maxBytes, int base)
+{
+	for (int i = 0; i < maxBytes; i++)
+	{
+		bytes[i] = strtoul(str, NULL, base); // Convert byte
+		str = strchr(str, sep);				 // Find next separator
+		if (str == NULL || *str == '\0')
+		{
+			break; // No more separators, exit
+		}
+		str++; // Point to next character after separator
 	}
 }
