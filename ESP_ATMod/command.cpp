@@ -954,6 +954,11 @@ void cmd_AT_CWSAP(commands_t cmd)
 
 			readNumber(inputBuffer, offset, max_connection);
 			++offset;
+			if (max_connection > 8 || max_connection < 1)
+			{
+				Serial.println(F("Maximum connection should be within the range of [1, 8]."));
+				break;
+			}
 
 			readNumber(inputBuffer, offset, ssid_hidden);
 			++offset;
