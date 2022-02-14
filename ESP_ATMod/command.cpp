@@ -90,6 +90,7 @@ static const commandDef_t commandList[] = {
 	{"+CIPSTA", MODE_QUERY_SET, CMD_AT_CIPSTA},
 	{"+CIPSTA_CUR", MODE_QUERY_SET, CMD_AT_CIPSTA_CUR},
 	{"+CIPSTA_DEF", MODE_QUERY_SET, CMD_AT_CIPSTA_DEF},
+	{"+CIPAP", MODE_QUERY_SET, CMD_AT_CIPAP},
 	{"+CWHOSTNAME", MODE_QUERY_SET, CMD_AT_CWHOSTNAME},
 
 	{"+CIPSTATUS", MODE_EXACT_MATCH, CMD_AT_CIPSTATUS},
@@ -169,6 +170,7 @@ static void cmd_AT_CWDHCP(commands_t cmd);
 static void cmd_AT_CWAUTOCONN();
 static void cmd_AT_CIPAPMAC();
 static void cmd_AT_CIPSTA(commands_t cmd);
+static void cmd_AT_CIPAP();
 static void cmd_AT_CWHOSTNAME();
 
 static void cmd_AT_CIPSTATUS();
@@ -286,6 +288,11 @@ void processCommandBuffer(void)
 	else if (cmd == CMD_AT_CIPSTA || cmd == CMD_AT_CIPSTA_CUR || cmd == CMD_AT_CIPSTA_DEF)
 		// AT+CIPSTA - Sets or prints the network configuration
 		cmd_AT_CIPSTA(cmd);
+
+	// ------------------------------------------------------------------------------------ AT+CIPAP
+	else if (cmd == CMD_AT_CIPAP)
+		// AT+CIPAP - Set or get the IP Address of the ESP8266 SoftAP
+		cmd_AT_CIPAP();
 
 	// ------------------------------------------------------------------------------------ AT+CWHOSTNAME
 	else if (cmd == CMD_AT_CWHOSTNAME)
@@ -1314,6 +1321,62 @@ void cmd_AT_CIPSTA(commands_t cmd)
 	else
 	{
 		Serial.printf_P(MSG_ERROR);
+	}
+}
+
+/*
+ * AT+CIPAP - Set or get the IP Address of the ESP8266 SoftAP
+ */
+void cmd_AT_CIPAP()
+{
+	bool error = true;
+	uint16_t offset = 8;
+
+	if (inputBuffer[offset] == '?')
+	{
+		Serial.printf_P(PSTR("+CIPAP:%s"), WiFi.localIP().toString().c_str());
+		Serial.println();
+		error = false;
+	}
+	else if (inputBuffer[offset] == '=')
+	{
+		do
+		{
+			String ip;
+
+			++offset;
+			ip = readStringFromBuffer(inputBuffer, offset, true);
+			if (ip.isEmpty())
+				break;
+
+			IPAddress staticIP;
+			if (!staticIP.fromString(ip))
+			{
+				break;
+			};
+
+			int gatewayAddress = 0;
+			if (staticIP[3] == 0)
+			{
+				gatewayAddress = 1;
+			}
+
+			IPAddress gateway(staticIP[0], staticIP[1], staticIP[2], gatewayAddress);
+			IPAddress subnet(255, 255, 255, 0);
+
+			WiFi.config(staticIP, gateway, subnet);
+		} while (0);
+
+		error = false;
+	}
+
+	if (error)
+	{
+		Serial.printf_P(MSG_ERROR);
+	}
+	else
+	{
+		Serial.printf_P(MSG_OK);
 	}
 }
 
