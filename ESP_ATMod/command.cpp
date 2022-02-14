@@ -76,6 +76,9 @@ static const commandDef_t commandList[] = {
 	{"+CWLAPOPT", MODE_QUERY_SET, CMD_AT_CWLAPOPT},
 	{"+CWLAP", MODE_EXACT_MATCH, CMD_AT_CWLAP},
 	{"+CWQAP", MODE_EXACT_MATCH, CMD_AT_CWQAP},
+	{"+CWSAP", MODE_QUERY_SET, CMD_AT_CWSAP},
+	{"+CWSAP_CUR", MODE_QUERY_SET, CMD_AT_CWSAP_CUR},
+	{"+CWSAP_DEF", MODE_QUERY_SET, CMD_AT_CWSAP_DEF},
 	{"+CWDHCP", MODE_QUERY_SET, CMD_AT_CWDHCP},
 	{"+CWDHCP_CUR", MODE_QUERY_SET, CMD_AT_CWDHCP_CUR},
 	{"+CWDHCP_DEF", MODE_QUERY_SET, CMD_AT_CWDHCP_DEF},
@@ -155,6 +158,7 @@ static void cmd_AT_CWJAP(commands_t cmd);
 static void cmd_AT_CWLAPOPT();
 static void cmd_AT_CWLAP();
 static void cmd_AT_CWQAP();
+static void cmd_AT_CWSAP(commands_t cmd);
 static void cmd_AT_CWDHCP(commands_t cmd);
 static void cmd_AT_CWAUTOCONN();
 static void cmd_AT_CIPSTA(commands_t cmd);
@@ -246,6 +250,11 @@ void processCommandBuffer(void)
 	// ------------------------------------------------------------------------------------ AT+CWQAP
 	else if (cmd == CMD_AT_CWQAP) // AT+CWQAP - Disconnects from the AP
 		cmd_AT_CWQAP();
+
+	// ------------------------------------------------------------------------------------ AT+CWSAP
+	else if (cmd == CMD_AT_CWSAP || cmd == CMD_AT_CWSAP_CUR || cmd == CMD_AT_CWSAP_DEF)
+		// AT+CWSAP - Query the configuration parameters of an ESP SoftAP
+		cmd_AT_CWSAP(cmd);
 
 	// ------------------------------------------------------------------------------------ AT+CWDHCP
 	else if (cmd == CMD_AT_CWDHCP || cmd == CMD_AT_CWDHCP_CUR || cmd == CMD_AT_CWDHCP_DEF)
@@ -610,25 +619,26 @@ void cmd_AT_CWMODE(commands_t cmd)
 
 		if (readNumber(inputBuffer, offset, mode) && mode <= 3 && inputBufferCnt == offset + 2)
 		{
-      switch(mode) {
-        case 1 :
-          WiFi.mode(WIFI_STA);
-          // Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
-          Serial.printf_P(MSG_OK);
-          break;
-        case 2:
-          WiFi.mode(WIFI_AP);
-          // Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
-          Serial.printf_P(MSG_OK);
-          break;
-        case 3:
-          WiFi.mode(WIFI_AP_STA);
-          // Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
-          Serial.printf_P(MSG_OK);
-          break;
-        default :
-          Serial.println(F("ERROR NOT SUPPORTED"));
-      }
+			switch (mode)
+			{
+			case 1:
+				WiFi.mode(WIFI_STA);
+				// Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
+				Serial.printf_P(MSG_OK);
+				break;
+			case 2:
+				WiFi.mode(WIFI_AP);
+				// Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
+				Serial.printf_P(MSG_OK);
+				break;
+			case 3:
+				WiFi.mode(WIFI_AP_STA);
+				// Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
+				Serial.printf_P(MSG_OK);
+				break;
+			default:
+				Serial.println(F("ERROR NOT SUPPORTED"));
+			}
 		}
 		else
 			Serial.printf_P(MSG_ERROR);
@@ -850,6 +860,154 @@ void cmd_AT_CWQAP()
 		WiFi.disconnect();
 	}
 	Serial.printf_P(MSG_OK);
+}
+
+/*
+ * AT+CWSAP - Query/Set the configuration of an ESP SoftAP
+ */
+void cmd_AT_CWSAP(commands_t cmd)
+{
+	uint16_t offset = 8; // offset to ? or =
+	if (cmd != CMD_AT_CWSAP)
+		offset += 4;
+
+	if (inputBuffer[offset] == '?' && inputBufferCnt == offset + 3)
+	{
+		struct softap_config conf;
+
+		if (cmd == CMD_AT_CWSAP_DEF)
+			wifi_softap_get_config_default(&conf);
+		else
+			wifi_softap_get_config(&conf);
+
+		char ssid[33];
+
+		memcpy(ssid, conf.ssid, sizeof(conf.ssid));
+		ssid[32] = 0; // Nullterm in case of 32 char ssid
+
+		const char *cmdSuffix = "";
+		if (cmd == CMD_AT_CWJAP_CUR)
+			cmdSuffix = suffix_CUR;
+		else if (cmd == CMD_AT_CWJAP_DEF)
+			cmdSuffix = suffix_DEF;
+
+		uint8_t maxCli = 0; // Maximum client number
+		if (gsCipMux == 1)
+			maxCli = 4;
+
+		Serial.printf_P(PSTR("+CWSAP%s:"), cmdSuffix);
+
+		// +CWSAP_CUR:<ssid>,<pwd>,<channel>,<ecn>,<max conn>,<ssid hidden>
+		Serial.printf_P(PSTR("\"%s\",\"%s\",%d,%d,%d,%d\r\n"), ssid, conf.password, conf.channel, conf.authmode, conf.max_connection, conf.ssid_hidden);
+
+		Serial.printf_P(MSG_OK);
+	}
+	else if (inputBuffer[offset] == '=')
+	{
+		bool error = true;
+
+		do
+		{
+			String ssid;
+			String pwd;
+			uint32_t channel;
+			uint32_t enc;
+			uint32_t max_connection = 4;
+			uint32_t ssid_hidden = 0;
+
+			++offset;
+
+			ssid = readStringFromBuffer(inputBuffer, offset, true);
+			if (ssid.isEmpty() || (inputBuffer[offset] != ','))
+			{
+				break;
+			}
+			else if (ssid.length() > 32)
+			{
+				Serial.println(F("SSID can be max. 32 characters"));
+				break;
+			}
+			++offset;
+
+			pwd = readStringFromBuffer(inputBuffer, offset, true);
+			if (pwd.length() > 64)
+			{
+				Serial.println(F("Password can not be longer than 64 characters"));
+				break;
+			}
+			++offset;
+
+			readNumber(inputBuffer, offset, channel);
+			++offset;
+
+			readNumber(inputBuffer, offset, enc);
+			++offset;
+
+			readNumber(inputBuffer, offset, max_connection);
+			++offset;
+
+			readNumber(inputBuffer, offset, ssid_hidden);
+			++offset;
+
+			if (enc == 0)
+			{
+				error = !WiFi.softAP(ssid);
+			}
+			else
+			{
+				error = !WiFi.softAP(ssid, pwd, channel, ssid_hidden, max_connection);
+			}
+
+			// if (inputBufferCnt != offset + 2)
+			//     break;
+
+			//         if (cmd != CMD_AT_CWJAP_CUR)
+			//             WiFi.persistent(true);
+
+			//         // If connected, disconnect first
+			//         if (WiFi.status() == WL_CONNECTED)
+			//         {
+			//             WiFi.disconnect();
+
+			//             esp8266::polledTimeout::oneShot disconnectTimeout(5000);
+			//             while (WiFi.status() == WL_CONNECTED && !disconnectTimeout)
+			//             {
+			//                 delay(50);
+			//             }
+
+			//             if (WiFi.status() == WL_CONNECTED)
+			//                 break; // Still connected
+			//         }
+
+			//         uint8_t *pBssid = nullptr;
+			//         if (!bssid.isEmpty())
+			//             pBssid = uBssid;
+
+			//         WiFi.begin(ssid, pwd, 0, pBssid);
+
+			//         WiFi.persistent(false);
+
+			//         gsFlag_Connecting = true;
+			//         gsFlag_Busy = true;
+
+			//         // Hack: while connecting we need the autoreconnect feature to be switched on
+			//         //       otherwise the connection fails (?)
+			//         WiFi.setAutoReconnect(true);
+		} while (0);
+
+		if (error)
+		{
+			Serial.printf_P(MSG_ERROR);
+		}
+		else
+		{
+			Serial.printf_P(MSG_OK);
+		}
+	}
+	else
+	{
+		Serial.printf_P(MSG_ERROR);
+	}
 }
 
 /*
@@ -1720,7 +1878,6 @@ void cmd_AT_CIPSERVER()
 
 			if (!readNumber(inputBuffer, offset, port) || port > 65535)
 				break;
-
 		}
 		else if (!stop)
 		{
