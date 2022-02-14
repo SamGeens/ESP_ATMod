@@ -93,6 +93,8 @@ uint16_t inputBufferCnt;			   // Number of bytes in inputBuffer
 WiFiEventHandler onConnectedHandler;
 WiFiEventHandler onGotIPHandler;
 WiFiEventHandler onDisconnectedHandler;
+WiFiEventHandler onSoftAPModeStationConnectedHandler;
+WiFiEventHandler onSoftAPModeStationDisconnectedHandler;
 
 client_t clients[5] = {{nullptr, TYPE_NONE, 0, 0, 0},
 					   {nullptr, TYPE_NONE, 0, 0, 0},
@@ -137,8 +139,8 @@ uint16_t gsCipSslSize = 16384;		// command AT+CIPSSLSIZE
 bool gsSTNPEnabled = true;			// command AT+CIPSNTPCFG
 int8_t gsSTNPTimezone = 0;			// command AT+CIPSNTPCFG
 String gsSNTPServer[3];				// command AT+CIPSNTPCFG
-uint8_t gsServersMaxConn = 5;			// command AT+CIPSERVERMAXCONN
-uint32_t gsServerConnTimeout = 180;	// command AT+CIPSSTO
+uint8_t gsServersMaxConn = 5;		// command AT+CIPSERVERMAXCONN
+uint32_t gsServerConnTimeout = 180; // command AT+CIPSSTO
 
 /*
  * Local prototypes
@@ -178,10 +180,14 @@ void setup()
 	onGotIPHandler = WiFi.onStationModeGotIP(&onStationGotIP);
 	// Call "onStationDisconnected" each time a station disconnects
 	onDisconnectedHandler = WiFi.onStationModeDisconnected(&onStationDisconnected);
+	// Call "onSoftAPModeStationConnected" each time a station connects
+	onSoftAPModeStationConnectedHandler = WiFi.onSoftAPModeStationConnected(&onSoftAPModeStationConnected);
+	// Call "onSoftAPModeStationDisconnected" each time a station disconnects
+	onSoftAPModeStationDisconnectedHandler = WiFi.onSoftAPModeStationDisconnected(&onSoftAPModeStationDisconnected);
 
 	// Set the WiFi defaults
-	WiFi.mode(WIFI_STA);
-	WiFi.persistent(false);
+	// WiFi.mode(WIFI_STA);
+	// WiFi.persistent(false);
 	WiFi.setAutoReconnect(false);
 
 	// Set the SNTP defaults
@@ -363,8 +369,7 @@ void loop()
 				}
 				if (isServer)
 				{
-					if (gsServerConnTimeout != 0 && cli->available() == 0
-							&& millis() - clients[i].lastActivityMillis > gsServerConnTimeout)
+					if (gsServerConnTimeout != 0 && cli->available() == 0 && millis() - clients[i].lastActivityMillis > gsServerConnTimeout)
 					{
 						if (gsCipMux == 1)
 							Serial.printf_P(PSTR("%d,"), i);
@@ -625,8 +630,8 @@ void loop()
 			gsFlag_Busy = false;
 			break;
 
-			//		case STATION_IDLE:
-			//return WL_IDLE_STATUS;
+			// case STATION_IDLE:
+			// 	return WL_IDLE_STATUS;
 		default:
 			break; // return WL_DISCONNECTED;
 		}

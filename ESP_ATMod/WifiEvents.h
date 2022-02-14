@@ -31,5 +31,7 @@
 void onStationConnected(const WiFiEventStationModeConnected &evt);
 void onStationGotIP(const WiFiEventStationModeGotIP &evt);
 void onStationDisconnected(const WiFiEventStationModeDisconnected &evt);
+void onSoftAPModeStationConnected(const WiFiEventSoftAPModeStationConnected &evt);
+void onSoftAPModeStationDisconnected(const WiFiEventSoftAPModeStationDisconnected &evt);
 
 #endif /* WIFIEVENTS_H_ */

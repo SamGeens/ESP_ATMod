@@ -50,3 +50,19 @@ void onStationDisconnected(const WiFiEventStationModeDisconnected &evt)
 {
 	Serial.printf_P(PSTR("WIFI DISCONNECT (%d)\r\n"), evt.reason);
 }
+
+/*
+ * Feedback when station connects to AP
+ */
+void onSoftAPModeStationConnected(const WiFiEventSoftAPModeStationConnected &evt)
+{
+	Serial.printf_P(PSTR("+STA_CONNECTED:\"%02X:%02X:%02X:%02X:%02X:%02X\"\r\n"), MAC2STR(evt.mac));
+}
+
+/*
+ * Feedback when station disconnects from AP
+ */
+void onSoftAPModeStationDisconnected(const WiFiEventSoftAPModeStationDisconnected &evt)
+{
+	Serial.printf_P(PSTR("+STA_DISCONNECTED:\"%02X:%02X:%02X:%02X:%02X:%02X\"\r\n"), MAC2STR(evt.mac));
+}

@@ -617,23 +617,24 @@ void cmd_AT_CWMODE(commands_t cmd)
 
 		++offset;
 
-		if (readNumber(inputBuffer, offset, mode) && mode <= 3 && inputBufferCnt == offset + 2)
+		if (readNumber(inputBuffer, offset, mode) && inputBufferCnt == offset + 2 && mode <= 3 && mode >= 0)
 		{
 			switch (mode)
 			{
+			case 0:
+				WiFi.mode(WIFI_OFF);
+				Serial.printf_P(MSG_OK);
+				break;
 			case 1:
 				WiFi.mode(WIFI_STA);
-				// Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
 				Serial.printf_P(MSG_OK);
 				break;
 			case 2:
 				WiFi.mode(WIFI_AP);
-				// Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
 				Serial.printf_P(MSG_OK);
 				break;
 			case 3:
 				WiFi.mode(WIFI_AP_STA);
-				// Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
 				Serial.printf_P(MSG_OK);
 				break;
 			default:
@@ -871,7 +872,8 @@ void cmd_AT_CWSAP(commands_t cmd)
 	if (cmd != CMD_AT_CWSAP)
 		offset += 4;
 
-	if (inputBuffer[offset] == '?' && inputBufferCnt == offset + 3)
+	// Only available when SoftAP is active
+	if (inputBuffer[offset] == '?' && inputBufferCnt == offset + 3 && WiFi.getMode() >= 2)
 	{
 		struct softap_config conf;
 
