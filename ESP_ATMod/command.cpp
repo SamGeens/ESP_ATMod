@@ -79,6 +79,7 @@ static const commandDef_t commandList[] = {
 	{"+CWSAP", MODE_QUERY_SET, CMD_AT_CWSAP},
 	{"+CWSAP_CUR", MODE_QUERY_SET, CMD_AT_CWSAP_CUR},
 	{"+CWSAP_DEF", MODE_QUERY_SET, CMD_AT_CWSAP_DEF},
+	{"+CWLIF", MODE_EXACT_MATCH, CMD_AT_CWLIF},
 	{"+CWDHCP", MODE_QUERY_SET, CMD_AT_CWDHCP},
 	{"+CWDHCP_CUR", MODE_QUERY_SET, CMD_AT_CWDHCP_CUR},
 	{"+CWDHCP_DEF", MODE_QUERY_SET, CMD_AT_CWDHCP_DEF},
@@ -159,6 +160,7 @@ static void cmd_AT_CWLAPOPT();
 static void cmd_AT_CWLAP();
 static void cmd_AT_CWQAP();
 static void cmd_AT_CWSAP(commands_t cmd);
+static void cmd_AT_CWLIF();
 static void cmd_AT_CWDHCP(commands_t cmd);
 static void cmd_AT_CWAUTOCONN();
 static void cmd_AT_CIPSTA(commands_t cmd);
@@ -255,6 +257,11 @@ void processCommandBuffer(void)
 	else if (cmd == CMD_AT_CWSAP || cmd == CMD_AT_CWSAP_CUR || cmd == CMD_AT_CWSAP_DEF)
 		// AT+CWSAP - Query the configuration parameters of an ESP SoftAP
 		cmd_AT_CWSAP(cmd);
+
+	// ------------------------------------------------------------------------------------ AT+CWLIF
+	else if (cmd == CMD_AT_CWLIF)
+		// AT+CWLIF - Obtain IP Address of the Station that connects to an ESP SoftAP
+		cmd_AT_CWLIF();
 
 	// ------------------------------------------------------------------------------------ AT+CWDHCP
 	else if (cmd == CMD_AT_CWDHCP || cmd == CMD_AT_CWDHCP_CUR || cmd == CMD_AT_CWDHCP_DEF)
@@ -1010,6 +1017,33 @@ void cmd_AT_CWSAP(commands_t cmd)
 	{
 		Serial.printf_P(MSG_ERROR);
 	}
+}
+
+/*
+ * AT+CWLIF - Obtain IP Address of the Station that connects to an ESP SoftAP
+ */
+void cmd_AT_CWLIF()
+{
+	int i = 1;
+	struct station_info *stat_info = wifi_softap_get_station_info();
+
+	while (stat_info != NULL)
+	{
+		char station_mac[18] = {0};
+		sprintf(station_mac, "%02X:%02X:%02X:%02X:%02X:%02X", MAC2STR(stat_info->bssid));
+		String station_ip = IPAddress((&stat_info->ip)->addr).toString();
+
+		Serial.print(station_ip);
+		Serial.print(",");
+		Serial.print(station_mac);
+
+		stat_info = STAILQ_NEXT(stat_info, next);
+		i++;
+	}
+
+	wifi_softap_free_station_info();
+
+	Serial.printf_P(MSG_OK);
 }
 
 /*
