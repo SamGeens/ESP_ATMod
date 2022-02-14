@@ -42,9 +42,9 @@
  * 0.3.1: AT+CWLAP, AT+CWLAPOPT and 'busy p...' fix
  * 0.3.2: AT+CWHOSTNAME
  * 0.3.3: AT+CIPSERVER [J.A]
+ * 0.3.4: WIFI modes（station, AP, station + AP)
  *
  * TODO:
- * - Implement AP mode
  * - TLS Security - persistent fingerprint and single certificate, AT+CIPSSLAUTH_DEF
  */
 
@@ -58,7 +58,6 @@
 extern "C"
 {
 #include "user_interface.h"
-
 #include "lwip/dns.h"
 }
 
@@ -73,7 +72,7 @@ extern "C"
  * Defines
  */
 
-const char APP_VERSION[] = "0.3.2";
+const char APP_VERSION[] = "0.3.4";
 
 /*
  * Constants

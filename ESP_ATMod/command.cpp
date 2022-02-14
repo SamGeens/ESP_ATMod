@@ -227,7 +227,7 @@ void processCommandBuffer(void)
 
 	// ------------------------------------------------------------------------------------ AT+CWMODE
 	else if (cmd == CMD_AT_CWMODE || cmd == CMD_AT_CWMODE_CUR || cmd == CMD_AT_CWMODE_DEF)
-		// AT+CWMODE - Sets the Current Wi-Fi mode (only mode 1 implemented)
+		// AT+CWMODE - Sets the Current Wi-Fi mode
 		cmd_AT_CWMODE(cmd);
 
 	// ------------------------------------------------------------------------------------ AT+CWJAP
@@ -583,7 +583,7 @@ void cmd_AT_SYSRAM()
 }
 
 /*
- * AT+CWMODE - Sets the Current Wi-Fi mode (only mode 1 implemented)
+ * AT+CWMODE - Sets the Current Wi-Fi mode
  */
 void cmd_AT_CWMODE(commands_t cmd)
 {
@@ -610,10 +610,25 @@ void cmd_AT_CWMODE(commands_t cmd)
 
 		if (readNumber(inputBuffer, offset, mode) && mode <= 3 && inputBufferCnt == offset + 2)
 		{
-			if (mode == 1) // Only MODE 1 is supported
-				Serial.printf_P(MSG_OK);
-			else
-				Serial.println(F("ERROR NOT SUPPORTED"));
+      switch(mode) {
+        case 1 :
+          WiFi.mode(WIFI_STA);
+          // Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
+          Serial.printf_P(MSG_OK);
+          break;
+        case 2:
+          WiFi.mode(WIFI_AP);
+          // Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
+          Serial.printf_P(MSG_OK);
+          break;
+        case 3:
+          WiFi.mode(WIFI_AP_STA);
+          // Serial.printf_P(PSTR("+CWMODE:%d\r\n"), WiFi.getMode());
+          Serial.printf_P(MSG_OK);
+          break;
+        default :
+          Serial.println(F("ERROR NOT SUPPORTED"));
+      }
 		}
 		else
 			Serial.printf_P(MSG_ERROR);
